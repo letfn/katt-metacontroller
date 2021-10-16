@@ -1,359 +1,691 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: metacontroller
+  name: metacontroller
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    app.kubernetes.io/managed-by: helm
-  name: externalsecrets.kubernetes-client.io
+    api-approved.kubernetes.io: unapproved, request not yet submitted
+  labels:
+    app.kubernetes.io/name: metacontroller
+  name: compositecontrollers.metacontroller.k8s.io
 spec:
-  group: kubernetes-client.io
+  group: metacontroller.k8s.io
   names:
-    kind: ExternalSecret
-    plural: externalsecrets
+    kind: CompositeController
+    listKind: CompositeControllerList
+    plural: compositecontrollers
     shortNames:
-    - es
-    singular: externalsecret
-  scope: Namespaced
+    - cc
+    - cctl
+    singular: compositecontroller
+  scope: Cluster
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .status.lastSync
-      name: Last Sync
-      type: date
-    - jsonPath: .status.status
-      name: status
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
           spec:
-            anyOf:
-            - required:
-              - data
-            - required:
-              - dataFrom
-            oneOf:
-            - properties:
-                backendType:
-                  enum:
-                  - secretsManager
-                  - systemManager
-            - properties:
-                backendType:
-                  enum:
-                  - vault
-            - properties:
-                backendType:
-                  enum:
-                  - azureKeyVault
-              required:
-              - keyVaultName
-            - properties:
-                backendType:
-                  enum:
-                  - gcpSecretsManager
-            - properties:
-                backendType:
-                  enum:
-                  - alicloudSecretsManager
-            - properties:
-                backendType:
-                  enum:
-                  - ibmcloudSecretsManager
-            - properties:
-                backendType:
-                  enum:
-                  - akeyless
             properties:
-              backendType:
-                description: Determines which backend to use for fetching secrets
-                enum:
-                - secretsManager
-                - systemManager
-                - vault
-                - azureKeyVault
-                - gcpSecretsManager
-                - alicloudSecretsManager
-                - ibmcloudSecretsManager
-                - akeyless
-                type: string
-              controllerId:
-                description: The ID of controller instance that manages this ExternalSecret.
-                  This is needed in case there is more than a KES controller instances
-                  within the cluster.
-                type: string
-              data:
+              childResources:
                 items:
-                  oneOf:
-                  - required:
-                    - key
-                    - name
-                  - required:
-                    - path
                   properties:
-                    isBinary:
-                      description: Whether the backend secret shall be treated as
-                        binary data represented by a base64-encoded string. You must
-                        set this to true for any base64-encoded binary data in the
-                        backend - to ensure it is not encoded in base64 again. Default
-                        is false.
-                      type: boolean
-                    key:
-                      description: Secret key in backend
+                    apiVersion:
                       type: string
-                    name:
-                      description: Name set for this key in the generated secret
+                    resource:
                       type: string
-                    path:
-                      description: Path from SSM to scrape secrets This will fetch
-                        all secrets and use the key from the secret as variable name
-                      type: string
-                    property:
-                      description: Property to extract if secret in backend is a JSON
-                        object
-                      type: string
-                    recursive:
-                      description: Allow to recurse thru all child keys on a given
-                        path, default false
-                      type: boolean
-                    secretType:
-                      description: 'Used by: ibmcloudSecretsManager Type of secret
-                        - one of username_password, iam_credentials or arbitrary'
-                      type: string
-                    version:
-                      description: 'Used by: gcpSecretsManager'
-                      type: string
-                      x-kubernetes-int-or-string: true
-                    versionId:
-                      description: 'Used by: secretsManager'
-                      type: string
-                    versionStage:
-                      description: 'Used by: alicloudSecretsManager, secretsManager'
-                      type: string
+                    updateStrategy:
+                      properties:
+                        method:
+                          type: string
+                        statusChecks:
+                          properties:
+                            conditions:
+                              items:
+                                properties:
+                                  reason:
+                                    type: string
+                                  status:
+                                    type: string
+                                  type:
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                              type: array
+                          type: object
+                      type: object
+                  required:
+                  - apiVersion
+                  - resource
                   type: object
                 type: array
-              dataFrom:
-                items:
-                  type: string
-                type: array
-              keyVaultName:
-                description: 'Used by: azureKeyVault'
-                type: string
-              kvVersion:
-                description: Vault K/V version either 1 or 2, default = 2
-                maximum: 2
-                minimum: 1
-                type: integer
-              projectId:
-                description: 'Used by: gcpSecretsManager'
-                type: string
-              region:
-                description: 'Used by: secretsManager, systemManager'
-                type: string
-              roleArn:
-                description: 'Used by: alicloudSecretsManager, secretsManager, systemManager'
-                type: string
-              template:
-                description: Template which will be deep merged without mutating any
-                  existing fields. into generated secret, can be used to set for example
-                  annotations or type on the generated secret
+              generateSelector:
+                type: boolean
+              hooks:
+                properties:
+                  customize:
+                    properties:
+                      webhook:
+                        properties:
+                          path:
+                            type: string
+                          service:
+                            properties:
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                              port:
+                                format: int32
+                                type: integer
+                              protocol:
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          timeout:
+                            type: string
+                          url:
+                            type: string
+                        type: object
+                    type: object
+                  finalize:
+                    properties:
+                      webhook:
+                        properties:
+                          path:
+                            type: string
+                          service:
+                            properties:
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                              port:
+                                format: int32
+                                type: integer
+                              protocol:
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          timeout:
+                            type: string
+                          url:
+                            type: string
+                        type: object
+                    type: object
+                  postUpdateChild:
+                    properties:
+                      webhook:
+                        properties:
+                          path:
+                            type: string
+                          service:
+                            properties:
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                              port:
+                                format: int32
+                                type: integer
+                              protocol:
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          timeout:
+                            type: string
+                          url:
+                            type: string
+                        type: object
+                    type: object
+                  preUpdateChild:
+                    properties:
+                      webhook:
+                        properties:
+                          path:
+                            type: string
+                          service:
+                            properties:
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                              port:
+                                format: int32
+                                type: integer
+                              protocol:
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          timeout:
+                            type: string
+                          url:
+                            type: string
+                        type: object
+                    type: object
+                  sync:
+                    properties:
+                      webhook:
+                        properties:
+                          path:
+                            type: string
+                          service:
+                            properties:
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                              port:
+                                format: int32
+                                type: integer
+                              protocol:
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          timeout:
+                            type: string
+                          url:
+                            type: string
+                        type: object
+                    type: object
                 type: object
-                x-kubernetes-preserve-unknown-fields: true
-              type:
-                description: 'DEPRECATED: Use spec.template.type'
-                type: string
-              vaultMountPoint:
-                description: 'Used by: vault'
-                type: string
-              vaultRole:
-                description: 'Used by: vault'
-                type: string
+              parentResource:
+                properties:
+                  apiVersion:
+                    type: string
+                  resource:
+                    type: string
+                  revisionHistory:
+                    properties:
+                      fieldPaths:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                required:
+                - apiVersion
+                - resource
+                type: object
+              resyncPeriodSeconds:
+                format: int32
+                type: integer
+            required:
+            - parentResource
             type: object
           status:
-            properties:
-              lastSync:
-                type: string
-              observedGeneration:
-                type: number
-              status:
-                type: string
             type: object
         required:
+        - metadata
         - spec
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    api-approved.kubernetes.io: unapproved, request not yet submitted
+  labels:
+    app.kubernetes.io/name: metacontroller
+  name: controllerrevisions.metacontroller.k8s.io
+spec:
+  group: metacontroller.k8s.io
+  names:
+    kind: ControllerRevision
+    listKind: ControllerRevisionList
+    plural: controllerrevisions
+    singular: controllerrevision
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          children:
+            items:
+              properties:
+                apiGroup:
+                  type: string
+                kind:
+                  type: string
+                names:
+                  items:
+                    type: string
+                  type: array
+              required:
+              - apiGroup
+              - kind
+              - names
+              type: object
+            type: array
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          parentPatch:
+            type: object
+        required:
+        - metadata
+        - parentPatch
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    api-approved.kubernetes.io: unapproved, request not yet submitted
+  labels:
+    app.kubernetes.io/name: metacontroller
+  name: decoratorcontrollers.metacontroller.k8s.io
+spec:
+  group: metacontroller.k8s.io
+  names:
+    kind: DecoratorController
+    listKind: DecoratorControllerList
+    plural: decoratorcontrollers
+    shortNames:
+    - dec
+    - decorators
+    singular: decoratorcontroller
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              attachments:
+                items:
+                  properties:
+                    apiVersion:
+                      type: string
+                    resource:
+                      type: string
+                    updateStrategy:
+                      properties:
+                        method:
+                          type: string
+                      type: object
+                  required:
+                  - apiVersion
+                  - resource
+                  type: object
+                type: array
+              hooks:
+                properties:
+                  customize:
+                    properties:
+                      webhook:
+                        properties:
+                          path:
+                            type: string
+                          service:
+                            properties:
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                              port:
+                                format: int32
+                                type: integer
+                              protocol:
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          timeout:
+                            type: string
+                          url:
+                            type: string
+                        type: object
+                    type: object
+                  finalize:
+                    properties:
+                      webhook:
+                        properties:
+                          path:
+                            type: string
+                          service:
+                            properties:
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                              port:
+                                format: int32
+                                type: integer
+                              protocol:
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          timeout:
+                            type: string
+                          url:
+                            type: string
+                        type: object
+                    type: object
+                  sync:
+                    properties:
+                      webhook:
+                        properties:
+                          path:
+                            type: string
+                          service:
+                            properties:
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                              port:
+                                format: int32
+                                type: integer
+                              protocol:
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          timeout:
+                            type: string
+                          url:
+                            type: string
+                        type: object
+                    type: object
+                type: object
+              resources:
+                items:
+                  properties:
+                    annotationSelector:
+                      properties:
+                        matchAnnotations:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        matchExpressions:
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                      type: object
+                    apiVersion:
+                      type: string
+                    labelSelector:
+                      description: A label selector is a label query over a set of
+                        resources. The result of matchLabels and matchExpressions
+                        are ANDed. An empty label selector matches all objects. A
+                        null label selector matches no objects.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                    resource:
+                      type: string
+                  required:
+                  - apiVersion
+                  - resource
+                  type: object
+                type: array
+              resyncPeriodSeconds:
+                format: int32
+                type: integer
+            required:
+            - resources
+            type: object
+          status:
+            type: object
+        required:
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    app.kubernetes.io/instance: external-secrets
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-external-secrets
-    helm.sh/chart: kubernetes-external-secrets-8.3.0
-  name: external-secrets-kubernetes-external-secrets
-  namespace: external-secrets
+    app.kubernetes.io/name: metacontroller
+  name: metacontroller
+  namespace: metacontroller
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/instance: external-secrets
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-external-secrets
-    helm.sh/chart: kubernetes-external-secrets-8.3.0
-  name: external-secrets-kubernetes-external-secrets
+    app.kubernetes.io/name: metacontroller
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: aggregate-metacontroller-edit
 rules:
 - apiGroups:
-  - ""
+  - metacontroller.k8s.io
   resources:
-  - secrets
+  - controllerrevisions
   verbs:
   - create
-  - update
+  - delete
+  - deletecollection
   - get
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-  - watch
   - list
-- apiGroups:
-  - apiextensions.k8s.io
-  resourceNames:
-  - externalsecrets.kubernetes-client.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - get
+  - patch
   - update
-- apiGroups:
-  - kubernetes-client.io
-  resources:
-  - externalsecrets
-  verbs:
-  - get
   - watch
-  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: metacontroller
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: aggregate-metacontroller-view
+rules:
 - apiGroups:
-  - kubernetes-client.io
+  - metacontroller.k8s.io
   resources:
-  - externalsecrets/status
+  - compositecontrollers
+  - controllerrevisions
+  - decoratorcontrollers
   verbs:
   - get
-  - update
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: metacontroller
+  name: metacontroller
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-    app.kubernetes.io/instance: external-secrets
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-external-secrets
-    helm.sh/chart: kubernetes-external-secrets-8.3.0
-  name: external-secrets-kubernetes-external-secrets
+    app.kubernetes.io/name: metacontroller
+  name: metacontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: external-secrets-kubernetes-external-secrets
+  name: metacontroller
 subjects:
 - kind: ServiceAccount
-  name: external-secrets-kubernetes-external-secrets
-  namespace: external-secrets
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    app.kubernetes.io/instance: external-secrets
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-external-secrets
-    helm.sh/chart: kubernetes-external-secrets-8.3.0
-  name: external-secrets-kubernetes-external-secrets-auth
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: system:auth-delegator
-subjects:
-- kind: ServiceAccount
-  name: external-secrets-kubernetes-external-secrets
-  namespace: external-secrets
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/instance: external-secrets
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-external-secrets
-    helm.sh/chart: kubernetes-external-secrets-8.3.0
-  name: external-secrets-kubernetes-external-secrets
-  namespace: external-secrets
-spec:
-  ports:
-  - name: prometheus
-    port: 3001
-    protocol: TCP
-    targetPort: prometheus
-  selector:
-    app.kubernetes.io/name: kubernetes-external-secrets
+  name: metacontroller
+  namespace: metacontroller
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   labels:
-    app.kubernetes.io/instance: external-secrets
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-external-secrets
-    helm.sh/chart: kubernetes-external-secrets-8.3.0
-  name: external-secrets-kubernetes-external-secrets
-  namespace: external-secrets
+    app.kubernetes.io/name: metacontroller
+  name: metacontroller
+  namespace: metacontroller
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/instance: external-secrets
-      app.kubernetes.io/name: kubernetes-external-secrets
+      app.kubernetes.io/name: metacontroller
+  serviceName: ""
   template:
     metadata:
       labels:
-        app.kubernetes.io/instance: external-secrets
-        app.kubernetes.io/name: kubernetes-external-secrets
+        app.kubernetes.io/name: metacontroller
     spec:
       containers:
-      - env:
-        - name: AKEYLESS_API_ENDPOINT
-          value: https://api.akeyless.io
-        - name: AWS_DEFAULT_REGION
-          value: us-west-2
-        - name: AWS_REGION
-          value: us-west-2
-        - name: LOG_LEVEL
-          value: info
-        - name: LOG_MESSAGE_KEY
-          value: msg
-        - name: METRICS_PORT
-          value: "3001"
-        - name: POLLER_INTERVAL_MILLISECONDS
-          value: "10000"
-        - name: VAULT_ADDR
-          value: http://127.0.0.1:8200
-        - name: WATCH_TIMEOUT
-          value: "60000"
-        image: ghcr.io/external-secrets/kubernetes-external-secrets:8.3.0
-        imagePullPolicy: IfNotPresent
-        name: kubernetes-external-secrets
-        ports:
-        - containerPort: 3001
-          name: prometheus
-        resources: {}
-      securityContext:
-        runAsNonRoot: true
-      serviceAccountName: external-secrets-kubernetes-external-secrets
+      - args:
+        - --zap-log-level=4
+        - --discovery-interval=20s
+        command:
+        - /usr/bin/metacontroller
+        image: metacontrollerio/metacontroller:v2.0.12
+        name: metacontroller
+      serviceAccountName: metacontroller
+  volumeClaimTemplates: []
