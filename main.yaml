@@ -1,6 +1,8 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+  annotations:
+    kuma.io/sidecar-injection: enabled
   labels:
     app.kubernetes.io/name: metacontroller
   name: metacontroller
